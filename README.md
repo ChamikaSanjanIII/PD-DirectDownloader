@@ -1,4 +1,4 @@
-# 🚀 PixelDrain Direct Downloader (Nginx 302 Redirect - Ultra Lightweight!)
+# 🚀 PixelDrain Direct Downloader Guide
 
 Node.js හෝ Python **කිසිවක්ම අවශ්‍ය නැත!** Nginx හි 302 Direct Redirect භාවිතයෙන්:
 - **User ගේ IP එකෙන්ම PixelDrain වෙතින් Download වේ.** (ඔබේ VPS IP එකට Speed limit/Block වැටෙන්නේ නැත).
@@ -7,49 +7,43 @@ Node.js හෝ Python **කිසිවක්ම අවශ්‍ය නැත!**
 
 ---
 
-## How It Works
+## 🛠️ Complete Deployment Guide (Step-by-Step)
 
-```
-User Click Link (cloud.cmoviez.com/download/FILE_ID)
-       ↓
-Nginx Instant 302 Redirect
-       ↓
-User Browser downloads directly from PixelDrain (User's IP)
-```
-
----
-
-## STEP 1 - Cloudflare DNS Setup
+### STEP 1 - Cloudflare DNS Setup
 
 1. Cloudflare Dashboard → **cmoviez.com** → **DNS** → **Add Record**:
 
 | Type | Name | IPv4 Address | Proxy Status | TTL |
 |---|---|---|---|---|
-| `A` | `cloud` | `YOUR_VPS_IP` | **DNS Only (Grey Cloud)** | Auto |
+| `A` | `cloud` | ` ` (ඔබේ VPS IP) | **DNS Only (Grey Cloud)** | Auto |
+
+> ⚠️ **වැදගත්:** SSL Setup එක ඉවර වෙනකම් ProxyStatus එක **DNS Only (Grey Cloud)** ලෙස තබන්න.
 
 ---
 
-## STEP 2 - Connect to VPS via SSH
+### STEP 2 - VPS එකට SSH මගින් Login වන්න
+
+Oracle Cloud Shell හෝ Windows Terminal මගින්:
 
 ```bash
-ssh -i ssh-key-2026-08-24.key ubuntu@YOUR_VPS_IP
+ssh -i ssh-key-2026-08-24.key ubuntu@....................
 ```
 
 ---
 
-## STEP 3 - Install Nginx & Certbot (`sudo` use කරන්න)
+### STEP 3 - Nginx සහ Certbot Install කරන්න
 
 ```bash
-# Update system packages
+# System Update කරන්න
 sudo apt update && sudo apt upgrade -y
 
-# Install Nginx & Certbot (Free SSL)
+# Nginx සහ Free SSL (Certbot) Install කරන්න
 sudo apt install -y nginx certbot python3-certbot-nginx
 ```
 
 ---
 
-## STEP 4 - Create Nginx Config
+### STEP 4 - Nginx Configuration එක සාදන්න
 
 ```bash
 sudo nano /etc/nginx/sites-available/cloud.cmoviez.com
@@ -59,59 +53,114 @@ sudo nano /etc/nginx/sites-available/cloud.cmoviez.com
 
 ```nginx
 server {
-    listen 80;
     server_name cloud.cmoviez.com;
 
-    # Direct 302 Redirect to PixelDrain (Request goes from User's IP)
-    location ~ ^/download/([a-zA-Z0-9]+)$ {
-        return 302 https://pixeldrain.com/api/file/$1?download;
+    # Direct Nginx Proxy Stream (Fixes ERR_INVALID_RESPONSE & Keeps cloud.cmoviez.com URL)
+    location ~ ^/download/(?:.*pixeldrain\.com/(?:u|api/file)/)?([a-zA-Z0-9]+)$ {
+        set $file_id $1;
+
+        # DNS Resolver for dynamic proxy_pass
+        resolver 8.8.8.8 1.1.1.1 valid=300s;
+        resolver_timeout 5s;
+
+        # Disable Accept-Encoding to prevent compressed stream ERR_INVALID_RESPONSE error
+        proxy_set_header Accept-Encoding "";
+
+        # Headers for PixelDrain Hotlink Bypass
+        proxy_set_header Host pixeldrain.com;
+        proxy_set_header Referer "https://pixeldrain.com/u/$file_id";
+        proxy_set_header User-Agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+        # SSL Settings for Upstream Connection
+        proxy_ssl_server_name on;
+        proxy_ssl_name pixeldrain.com;
+        proxy_ssl_protocols TLSv1.2 TLSv1.3;
+
+        # Upstream Proxy Pass
+        proxy_pass https://pixeldrain.com/api/file/$file_id?download;
+
+        # Preserve original filename sent by PixelDrain
+        proxy_pass_header Content-Disposition;
+
+        # HTTP 1.1 & Stream Optimization
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_read_timeout 3600;
+        proxy_connect_timeout 300;
+        proxy_send_timeout 3600;
     }
 
-    # Health check
-    location = / {
-        return 200 "PixelDrain Direct Redirector Running!";
-        add_header Content-Type text/plain;
-    }
-
-    # Block all other paths
     location / {
-        return 404;
+        return 302 https://cmoviez.com;
     }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/cloud.cmoviez.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/cloud.cmoviez.com/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    if ($host = cloud.cmoviez.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    listen 80;
+    server_name cloud.cmoviez.com;
+    return 404; # managed by Certbot
 }
 ```
 
-Save කර ඉවත් වන්න: `Ctrl + O` → `Enter` → `Ctrl + X`
+**Save කර ඉවත් වීමට:** `Ctrl + O` → `Enter` → `Ctrl + X`
 
-### Site එක Enable කර Nginx Reload කරන්න:
+---
+
+### STEP 5 - Config එක Enable කර Nginx Reload කරන්න (404 Fix එක ඇතුළත්ව)
 
 ```bash
-# Link config to active sites
+# 1. Default Nginx site එක ඉවත් කරන්න (404 එන්නේ නැති වෙන්න)
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# 2. ඔබේ site එක Enable කරන්න
 sudo ln -s /etc/nginx/sites-available/cloud.cmoviez.com /etc/nginx/sites-enabled/
 
-# Test Nginx configuration
+# 3. Config එකේ Errors තියෙද බලන්න
 sudo nginx -t
 
-# Restart Nginx
+# 4. Nginx Restart කරන්න
 sudo systemctl restart nginx
 ```
 
 ---
 
-## STEP 5 - Setup Free SSL (HTTPS)
+### STEP 6 - Free SSL Certificate (HTTPS) ලබා ගන්න
 
 ```bash
 sudo certbot --nginx -d cloud.cmoviez.com
 ```
-- Email එකක් ලබා දෙන්න.
-- Terms සඳහා `Y` ගසන්න.
-- Redirect HTTP to HTTPS සදහා `2` තෝරන්න (හෝ Automatic handle වෙයි).
+
+- Email එකක් ඇතුළත් කරන්න.
+- Terms සඳහා `Y` ලෙස Type කරන්න.
+- HTTP redirect to HTTPS සඳහා `2` තෝරන්න (නැතහොත් automatic setup වේ).
 
 ---
 
-## How to Use
+## 📌 How to Use
 
-- PixelDrain Link එක: `https://pixeldrain.com/u/abc12345`
-- ඔබේ Custom Link එක: `https://cloud.cmoviez.com/download/abc12345`
+- PixelDrain Original Link: `https://pixeldrain.com/u/abc12345`
+- ඔබේ Custom Direct Link: `https://cloud.cmoviez.com/download/abc12345`
 
-ලින්ක් එක Click කළ වහාම **User ගේ IP එකෙන් Direct Download එක Start වේ!**
+ලින්ක් එක Click කළ වහාම **User ගේ IP එකෙන්ම Direct Download එක Start වේ!**
+
+---
+
+## 🛠️ Useful Commands
+
+```bash
+sudo systemctl status nginx     # Check Nginx status
+sudo systemctl reload nginx     # Reload Nginx config
+sudo nginx -t                   # Test config syntax
+```
 
