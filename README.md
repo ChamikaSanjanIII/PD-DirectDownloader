@@ -32,19 +32,19 @@ User Browser downloads directly from PixelDrain (User's IP)
 ## STEP 2 - Connect to VPS via SSH
 
 ```bash
-ssh root@YOUR_VPS_IP
+ssh -i ssh-key-2026-08-24.key ubuntu@YOUR_VPS_IP
 ```
 
 ---
 
-## STEP 3 - Install Nginx & Certbot
+## STEP 3 - Install Nginx & Certbot (`sudo` use කරන්න)
 
 ```bash
 # Update system packages
-apt update && apt upgrade -y
+sudo apt update && sudo apt upgrade -y
 
 # Install Nginx & Certbot (Free SSL)
-apt install -y nginx certbot python3-certbot-nginx
+sudo apt install -y nginx certbot python3-certbot-nginx
 ```
 
 ---
@@ -52,7 +52,7 @@ apt install -y nginx certbot python3-certbot-nginx
 ## STEP 4 - Create Nginx Config
 
 ```bash
-nano /etc/nginx/sites-available/cloud.cmoviez.com
+sudo nano /etc/nginx/sites-available/cloud.cmoviez.com
 ```
 
 පහත Nginx Configuration එක සම්පූර්ණයෙන් Paste කරන්න (`Ctrl+Shift+V`):
@@ -86,13 +86,13 @@ Save කර ඉවත් වන්න: `Ctrl + O` → `Enter` → `Ctrl + X`
 
 ```bash
 # Link config to active sites
-ln -s /etc/nginx/sites-available/cloud.cmoviez.com /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/cloud.cmoviez.com /etc/nginx/sites-enabled/
 
 # Test Nginx configuration
-nginx -t
+sudo nginx -t
 
 # Restart Nginx
-systemctl restart nginx
+sudo systemctl restart nginx
 ```
 
 ---
@@ -100,7 +100,7 @@ systemctl restart nginx
 ## STEP 5 - Setup Free SSL (HTTPS)
 
 ```bash
-certbot --nginx -d cloud.cmoviez.com
+sudo certbot --nginx -d cloud.cmoviez.com
 ```
 - Email එකක් ලබා දෙන්න.
 - Terms සඳහා `Y` ගසන්න.
