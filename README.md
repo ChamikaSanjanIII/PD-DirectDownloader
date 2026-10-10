@@ -17,25 +17,41 @@ Data streams byte-by-byte through your VPS straight to the user without server d
 
 ## 🚀 Step-by-Step VPS Deployment Guide
 
-### 1. VPS එක තුළ App එක Start කිරීම (PM2 24/7 Service)
+### 1. VPS එක තුළ App එක Setup කිරීම
 
-1. VPS Terminal (SSH) එකට log වී project folder එකට යන්න:
-   ```bash
-   cd /path/to/project
-   ```
+`/var/www` folder එක තුළ `Permission denied` error එක පැමිණේ නම්, **`sudo` permission ලබා දෙන්න** හෝ **Owner එක වෙනස් කරන්න**:
 
-2. PM2 Process Manager එක install කර app එක 24/7 run කරන්න:
-   ```bash
-   # PM2 globally install කිරීම (නොමැති නම් පමණක්)
-   sudo npm install -g pm2
+```bash
+# 1. /var/www folder එකට ඔබේ User (ubuntu) ට Write Permission ලබා දීම:
+sudo chown -R $USER:$USER /var/www
 
-   # App එක start කිරීම
-   pm2 start server.js --name "cmoviez-streamer"
+# 2. /var/www වෙත ගොස් Git Repository එක Clone කිරීම:
+cd /var/www
+git clone https://github.com/ChamikaSanjanIII/PD-DirectDownloader.git
+cd PD-DirectDownloader
+```
 
-   # VPS Reboot වුවද auto restart වීමට setup කිරීම:
-   pm2 startup
-   pm2 save
-   ```
+*(නැතහොත් Home directory එකේ clone කිරීමට: `cd ~ && git clone https://github.com/ChamikaSanjanIII/PD-DirectDownloader.git`)*
+
+---
+
+### 2. PM2 24/7 Background Service එක මගින් `server.js` Start කිරීම
+
+Project folder එක තුළ සිට පහත පරිදි `server.js` start කරන්න:
+
+```bash
+# PM2 globally install කිරීම (VPS එකේ නොමැති නම් පමණක්)
+sudo npm install -g pm2
+
+# server.js 24/7 background process එකක් ලෙස start කිරීම:
+pm2 start server.js --name "cmoviez-streamer"
+
+# VPS Reboot/Restart වුවද ඉබේම server.js start වීමට setup කිරීම:
+pm2 startup
+pm2 save
+```
+
+*(නැතහොත් PM2 නොමැතිව direct run කිරීමට: `node server.js`)*
 
 ---
 
