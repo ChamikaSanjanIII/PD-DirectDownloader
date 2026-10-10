@@ -1,166 +1,158 @@
-# 🚀 PixelDrain Direct Downloader Guide
+# ⚡ Pixeldrain Direct Streamer & Custom Subdomain Downloader
 
-Node.js හෝ Python **කිසිවක්ම අවශ්‍ය නැත!** Nginx හි 302 Direct Redirect භාවිතයෙන්:
-- **User ගේ IP එකෙන්ම PixelDrain වෙතින් Download වේ.** (ඔබේ VPS IP එකට Speed limit/Block වැටෙන්නේ නැත).
-- **0% VPS Bandwidth Usage & ~5MB RAM Usage.**
-- 1GB RAM VPS එකක සාර්ථකව 100,000+ users ලා handle කළ හැක!
+High-performance, **Zero-Dependency** direct streaming proxy for Pixeldrain files. 
+Data streams byte-by-byte through your VPS straight to the user without server disk caching limits.
 
 ---
 
-## 🛠️ Complete Deployment Guide (Step-by-Step)
+## 📁 VPS එකට Upload කළ යුතු Files (Files to Upload)
 
-### STEP 1 - Cloudflare DNS Setup
+මෙම project එක **Pure Native Node.js (Zero External Dependencies)** මගින් සකසා ඇති නිසා VPS එක තුළ `npm install` කිරීමට අවශ්‍ය නොවේ!
 
-1. Cloudflare Dashboard → **cmoviez.com** → **DNS** → **Add Record**:
-
-| Type | Name | IPv4 Address | Proxy Status | TTL |
-|---|---|---|---|---|
-| `A` | `cloud` | ` ` (ඔබේ VPS IP) | **DNS Only (Grey Cloud)** | Auto |
-
-> ⚠️ **වැදගත්:** SSL Setup එක ඉවර වෙනකම් ProxyStatus එක **DNS Only (Grey Cloud)** ලෙස තබන්න.
+**VPS එකට Upload කළ යුත්තේ පහත Files/Folders පමණි:**
+- 📄 `server.js`
+- 📁 `public/` (index.html, preview.html, style.css, app.js ඇතුළත් folder එක)
 
 ---
 
-### STEP 2 - VPS එකට SSH මගින් Login වන්න
+## 🚀 Step-by-Step VPS Deployment Guide
 
-Oracle Cloud Shell හෝ Windows Terminal මගින්:
+### 1. VPS එක තුළ App එක Start කිරීම (PM2 24/7 Service)
+
+1. VPS Terminal (SSH) එකට log වී project folder එකට යන්න:
+   ```bash
+   cd /path/to/project
+   ```
+
+2. PM2 Process Manager එක install කර app එක 24/7 run කරන්න:
+   ```bash
+   # PM2 globally install කිරීම (නොමැති නම් පමණක්)
+   sudo npm install -g pm2
+
+   # App එක start කිරීම
+   pm2 start server.js --name "cmoviez-streamer"
+
+   # VPS Reboot වුවද auto restart වීමට setup කිරීම:
+   pm2 startup
+   pm2 save
+   ```
+
+---
+
+### 2. Cloudflare / DNS Settings
+
+ඔබේ Domain Registrar (Cloudflare, Namecheap, etc.) තුළ A Records 2ක් එකතු කරන්න:
+
+| Type | Name | IPv4 Address (Target) | Proxy Status |
+| :--- | :--- | :--- | :--- |
+| **A** | `cloud` | `YOUR_VPS_IP` | Proxied (Orange) or DNS Only |
+| **A** | `stream` | `YOUR_VPS_IP` | Proxied (Orange) or DNS Only |
+
+---
+
+### 3. Nginx Reverse Proxy & SSL (HTTPS) Setup
+
+#### Step 3.1: Direct Download Subdomain Setup (`cloud.cmoviez.com`)
+
+1. VPS Terminal එකේ File එක සාදන්න:
+   ```bash
+   sudo nano /etc/nginx/sites-available/cloud.cmoviez.com
+   ```
+
+2. පහත Config එක එකතු කර Save කරන්න (`Ctrl + O` -> `Enter` -> `Ctrl + X`):
+   ```nginx
+   server {
+       listen 80;
+       server_name cloud.cmoviez.com;
+
+       location / {
+           proxy_pass http://127.0.0.1:3000;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection 'upgrade';
+           proxy_set_header Host $host;
+           proxy_cache_bypass $http_upgrade;
+
+           # Disable response buffering for instant streaming
+           proxy_buffering off;
+           proxy_read_timeout 86400s;
+       }
+   }
+   ```
+
+---
+
+#### Step 3.2: Live Stream / Preview Subdomain Setup (`stream.cmoviez.com`)
+
+1. VPS Terminal එකේ දෙවන File එක සාදන්න:
+   ```bash
+   sudo nano /etc/nginx/sites-available/stream.cmoviez.com
+   ```
+
+2. පහත Config එක එකතු කර Save කරන්න (`Ctrl + O` -> `Enter` -> `Ctrl + X`):
+   ```nginx
+   server {
+       listen 80;
+       server_name stream.cmoviez.com;
+
+       location / {
+           proxy_pass http://127.0.0.1:3000;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection 'upgrade';
+           proxy_set_header Host $host;
+           proxy_cache_bypass $http_upgrade;
+
+           # Disable response buffering for instant video streaming
+           proxy_buffering off;
+           proxy_read_timeout 86400s;
+       }
+   }
+   ```
+
+---
+
+#### Step 3.3: Enable Nginx Files & Reload
 
 ```bash
-ssh -i ssh-key-2026-08-24.key ubuntu@....................
-```
-
----
-
-### STEP 3 - Nginx සහ Certbot Install කරන්න
-
-```bash
-# System Update කරන්න
-sudo apt update && sudo apt upgrade -y
-
-# Nginx සහ Free SSL (Certbot) Install කරන්න
-sudo apt install -y nginx certbot python3-certbot-nginx
-```
-
----
-
-### STEP 4 - Nginx Configuration එක සාදන්න
-
-```bash
-sudo nano /etc/nginx/sites-available/cloud.cmoviez.com
-```
-
-පහත Nginx Configuration එක සම්පූර්ණයෙන් Paste කරන්න (`Ctrl+Shift+V`):
-
-```nginx
-server {
-    server_name cloud.cmoviez.com;
-
-    # Direct Nginx Proxy Stream (Fixes ERR_INVALID_RESPONSE & Keeps cloud.cmoviez.com URL)
-    location ~ ^/download/(?:.*pixeldrain\.com/(?:u|api/file)/)?([a-zA-Z0-9]+)$ {
-        set $file_id $1;
-
-        # DNS Resolver for dynamic proxy_pass
-        resolver 8.8.8.8 1.1.1.1 valid=300s;
-        resolver_timeout 5s;
-
-        # Disable Accept-Encoding to prevent compressed stream ERR_INVALID_RESPONSE error
-        proxy_set_header Accept-Encoding "";
-
-        # Headers for PixelDrain Hotlink Bypass
-        proxy_set_header Host pixeldrain.com;
-        proxy_set_header Referer "https://pixeldrain.com/u/$file_id";
-        proxy_set_header User-Agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-        # SSL Settings for Upstream Connection
-        proxy_ssl_server_name on;
-        proxy_ssl_name pixeldrain.com;
-        proxy_ssl_protocols TLSv1.2 TLSv1.3;
-
-        # Upstream Proxy Pass
-        proxy_pass https://pixeldrain.com/api/file/$file_id?download;
-
-        # Preserve original filename sent by PixelDrain
-        proxy_pass_header Content-Disposition;
-
-        # HTTP 1.1 & Stream Optimization
-        proxy_http_version 1.1;
-        proxy_set_header Connection "";
-        proxy_buffering off;
-        proxy_read_timeout 3600;
-        proxy_connect_timeout 300;
-        proxy_send_timeout 3600;
-    }
-
-    location / {
-        return 302 https://cmoviez.com;
-    }
-
-    listen 443 ssl; # managed by Certbot
-    ssl_certificate /etc/letsencrypt/live/cloud.cmoviez.com/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/cloud.cmoviez.com/privkey.pem; # managed by Certbot
-    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
-}
-
-server {
-    if ($host = cloud.cmoviez.com) {
-        return 301 https://$host$request_uri;
-    } # managed by Certbot
-
-    listen 80;
-    server_name cloud.cmoviez.com;
-    return 404; # managed by Certbot
-}
-```
-
-**Save කර ඉවත් වීමට:** `Ctrl + O` → `Enter` → `Ctrl + X`
-
----
-
-### STEP 5 - Config එක Enable කර Nginx Reload කරන්න (404 Fix එක ඇතුළත්ව)
-
-```bash
-# 1. Default Nginx site එක ඉවත් කරන්න (404 එන්නේ නැති වෙන්න)
-sudo rm -f /etc/nginx/sites-enabled/default
-
-# 2. ඔබේ site එක Enable කරන්න
+# Nginx site configurations Link කිරීම
 sudo ln -s /etc/nginx/sites-available/cloud.cmoviez.com /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/stream.cmoviez.com /etc/nginx/sites-enabled/
 
-# 3. Config එකේ Errors තියෙද බලන්න
+# Nginx Syntax පරික්ෂාව සහ Reload කිරීම
 sudo nginx -t
+sudo systemctl reload nginx
+```
 
-# 4. Nginx Restart කරන්න
-sudo systemctl restart nginx
+#### Step 3.4: Free SSL (Certbot HTTPS) සක්‍රීය කිරීම
+```bash
+sudo certbot --nginx -d cloud.cmoviez.com -d stream.cmoviez.com
 ```
 
 ---
 
-### STEP 6 - Free SSL Certificate (HTTPS) ලබා ගන්න
+## 🔗 URL Formats (භාවිත වන ආකාරය)
+
+### 📥 Direct File Download (`cloud.cmoviez.com`):
+```text
+https://cloud.cmoviez.com/download/FILE_ID
+```
+*(උදා: `https://cloud.cmoviez.com/download/rn6utFzW`)*
+- Direct Attachment Save: බ්‍රවුසර් එකෙන් හෝ Phone එකෙන් Click කළ සැනින්ම File එක Save වේ.
+
+### 👁️ Live Media Preview & Stream (`stream.cmoviez.com`):
+```text
+https://stream.cmoviez.com/stream/FILE_ID
+```
+*(උදා: `https://stream.cmoviez.com/stream/rn6utFzW`)*
+- Mobile/Browser එක තුළ වීඩියෝව හෝ ඕඩියෝව Direct Play කර නරඹයි.
+
+---
+
+## 🛠️ Local Testing (PC එකේදී)
 
 ```bash
-sudo certbot --nginx -d cloud.cmoviez.com
+node server.js
 ```
-
-- Email එකක් ඇතුළත් කරන්න.
-- Terms සඳහා `Y` ලෙස Type කරන්න.
-- HTTP redirect to HTTPS සඳහා `2` තෝරන්න (නැතහොත් automatic setup වේ).
-
----
-
-## 📌 How to Use
-
-- PixelDrain Original Link: `https://pixeldrain.com/u/abc12345`
-- ඔබේ Custom Direct Link: `https://cloud.cmoviez.com/download/abc12345`
-
-ලින්ක් එක Click කළ වහාම **User ගේ IP එකෙන්ම Direct Download එක Start වේ!**
-
----
-
-## 🛠️ Useful Commands
-
-```bash
-sudo systemctl status nginx     # Check Nginx status
-sudo systemctl reload nginx     # Reload Nginx config
-sudo nginx -t                   # Test config syntax
-```
-
+- Direct Download Test: `http://localhost:3000/download/FILE_ID`
+- Direct Stream Test: `http://localhost:3000/stream/FILE_ID`
