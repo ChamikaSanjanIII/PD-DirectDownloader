@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pixeldrain Direct Stream Downloader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="background-glow"></div>
+  <div class="background-grid"></div>
+
+  <main class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="badge">
+        <span class="pulse-dot"></span>
+        <span>Zero-Delay VPS Streamer</span>
+      </div>
+      <h1>Pixeldrain Direct Downloader</h1>
+      <p class="subtitle">
+        Instant real-time byte streaming. Files pass directly through your VPS/Server to the user chunk-by-chunk without delay or buffering limit!
+      </p>
+    </header>
+
+    <!-- Input Box -->
+    <section class="card input-card">
+      <form id="urlForm" class="input-form">
+        <div class="input-group">
+          <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+          <input 
+            type="text" 
+            id="urlInput" 
+            placeholder="Paste Pixeldrain link or File ID (e.g. https://pixeldrain.com/u/x82a9k1m)"
+            required
+            autocomplete="off"
+          />
+          <button type="button" id="pasteBtn" class="btn-secondary" title="Paste from clipboard">
+            Paste
+          </button>
+        </div>
+        <button type="submit" id="fetchBtn" class="btn-primary">
+          <span>Get Direct Link</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          </svg>
+        </button>
+      </form>
+      <div id="errorMessage" class="error-banner hidden"></div>
+    </section>
+
+    <!-- Loader -->
+    <div id="loader" class="loader-container hidden">
+      <div class="spinner"></div>
+      <p>Fetching Pixeldrain file metadata...</p>
+    </div>
+
+    <!-- Result Card -->
+    <section id="resultCard" class="card result-card hidden">
+      <div class="file-header">
+        <div class="file-icon-box">
+          <svg xmlns="http://www.w3.org/2000/svg" class="file-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+          </svg>
+        </div>
+        <div class="file-info-header">
+          <h2 id="fileName">filename.zip</h2>
+          <span id="fileMime" class="file-tag">application/zip</span>
+        </div>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="meta-label">File Size</span>
+          <span id="fileSize" class="meta-value">0 MB</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Upload Date</span>
+          <span id="fileDate" class="meta-value">-</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Downloads</span>
+          <span id="fileDownloads" class="meta-value">0</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">File ID</span>
+          <span id="fileIdTag" class="meta-value code-font">-</span>
+        </div>
+      </div>
+
+      <!-- Direct Link Box -->
+      <div class="link-section">
+        <label for="directUrlInput" class="link-label">Direct VPS Stream Link (IDM / Browser / Curl)</label>
+        <div class="link-input-group">
+          <input type="text" id="directUrlInput" readonly class="code-font">
+          <button id="copyBtn" class="btn-action btn-copy">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+            </svg>
+            <span id="copyBtnText">Copy Link</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Download Actions -->
+      <div class="action-buttons">
+        <a id="downloadAnchor" href="#" download class="btn-primary btn-large btn-download-hero">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span style="font-size: 1.1rem; font-weight: 800;">DIRECT DOWNLOAD FILE</span>
+        </a>
+
+        <a id="previewAnchor" href="#" target="_blank" class="btn-secondary btn-large">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <span>Preview Online</span>
+        </a>
+      </div>
+
+      <!-- Real-time Live Stream Progress Tester -->
+      <div id="streamTesterCard" class="stream-tester hidden">
+        <div class="tester-header">
+          <h3>Live Stream Monitor</h3>
+          <span id="streamStatusBadge" class="status-badge">Streaming...</span>
+        </div>
+        
+        <div class="progress-bar-container">
+          <div id="streamProgressBar" class="progress-bar-fill" style="width: 0%"></div>
+        </div>
+
+        <div class="tester-metrics">
+          <div>Downloaded: <strong id="downloadedMB">0.00 MB</strong></div>
+          <div>Speed: <strong id="liveSpeed">0.00 MB/s</strong></div>
+          <div>Progress: <strong id="progressPercent">0%</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Overview Footer -->
+    <footer class="features-grid">
+      <div class="feature-item">
+        <div class="feature-icon">⚡</div>
+        <h3>Zero Disk Cache</h3>
+        <p>Data streams directly through memory in tiny chunk buffers to save server disk space.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🚀</div>
+        <h3>Instant Response</h3>
+        <p>The client receives the first byte in milliseconds as soon as the VPS receives it.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">📥</div>
+        <h3>IDM & Resume Supported</h3>
+        <p>Supports range requests for multi-threaded download accelerators like IDM or 1DM.</p>
+      </div>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
