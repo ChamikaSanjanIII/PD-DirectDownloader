@@ -87,6 +87,9 @@ const server = http.createServer(async (req, res) => {
       const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
       
       const reqHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+        'Accept-Encoding': 'identity',
         'X-Forwarded-For': clientIp
       };
       if (req.headers.range) {
