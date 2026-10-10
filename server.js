@@ -84,7 +84,11 @@ const server = http.createServer(async (req, res) => {
 
     try {
       const pixeldrainUrl = `https://pixeldrain.com/api/file/${fileId}`;
-      const reqHeaders = {};
+      const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+      
+      const reqHeaders = {
+        'X-Forwarded-For': clientIp
+      };
       if (req.headers.range) {
         reqHeaders['Range'] = req.headers.range;
       }
